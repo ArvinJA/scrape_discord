@@ -1,4 +1,4 @@
-Scrape Dsicord channels
+Scrape Discord channels
 
 Usage:
 ```
