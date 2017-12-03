@@ -11,3 +11,5 @@ Usage:
 
 Requirements: discordy.py, asyncio, python3
 (only tested with python 3.4.3 and discord.py 0.16.8)
+
+Saves reactions and "cleaned" messages to different files
