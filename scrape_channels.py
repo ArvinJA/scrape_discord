@@ -36,6 +36,18 @@ def on_ready():
 		
 		print("\n\nFinished. CTRL+C to exit")
 		
+# source: https://stackoverflow.com/a/37630397/312332
+def progress_bar(value, endvalue, bar_length=20):
+	percent = float(value) / endvalue
+	arrow = '-' * int(round(percent * bar_length)-1) + '>'
+	spaces = ' ' * (bar_length - len(arrow))
+	
+	try:
+		sys.stdout.write("\rPercent: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
+		sys.stdout.flush()
+	except:
+		pass
+		
 def scrape_logs_from(channel):
 	all_messages = []
 	all_clean_messages = []
@@ -87,15 +99,14 @@ def scrape_logs_from(channel):
 		}) + '\n')
 		
 		yield from process_reactions(message, f_reactions)
-		sys.stdout.write("\r%d%%" % int((i*100)/len(all_messages)))
-		sys.stdout.flush()
+		progress_bar(i, len(all_messages))
 		
 	f_messages.close()
 	f_reactions.close()
 	f_clean_messages.close()
 	
-	sys.stdout.write("\r100%. Done writing messages.\n\n")
-	sys.stdout.flush()
+	progress_bar(1, 1)
+	print("\nDone writing messages.\n")
 	
 def process_reactions(message, f_reactions):
 	for reaction in message.reactions:
