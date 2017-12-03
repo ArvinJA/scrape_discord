@@ -29,15 +29,12 @@ def on_ready():
 		print('------')
 		
 		SERVER = client.get_server(SERVER_ID)
-		if CHANNELS:
-			for cid in CHANNELS:
-				yield from scrape_logs_from(SERVER.get_channel(cid))
-		else:
-			for channel in SERVER.channels:
-				if str(channel.type) == 'text':
-					yield from scrape_logs_from(channel)
+		channels = [SERVER.get_channel(cid) for cid in CHANNELS] if CHANNELS else SERVER.channels
+		for channel in sorted(channels, key=lambda c: c.position):
+			if str(channel.type) == 'text' and SERVER.me.permissions_in(channel).read_message_history:
+				yield from scrape_logs_from(channel)
 		
-		print("\n\nFinished. Spam CTRL+C to exit")
+		print("\n\nFinished. CTRL+C to exit")
 		
 def scrape_logs_from(channel):
 	all_messages = []
@@ -72,9 +69,9 @@ def scrape_logs_from(channel):
 			
 		sleep(0.1)
 	
-	print('writing '+ str(len(all_messages)) +' messages to files')
+	print('writing '+ str(len(all_messages)) +' messages to log files for ' + channel.name)
 	
-	for message in all_messages[::-1]:
+	for i, message in enumerate(all_messages[::-1]):
 		f_messages.write(json.dumps({
 			'id': message.id,
 			'timestamp': str(message.timestamp), 
@@ -89,9 +86,21 @@ def scrape_logs_from(channel):
 			'clean_content': message.clean_content
 		}) + '\n')
 		
-		for reaction in message.reactions:
+		yield from process_reactions(message, f_reactions)
+		sys.stdout.write("\r%d%%" % int((i*100)/len(all_messages)))
+		sys.stdout.flush()
+		
+	f_messages.close()
+	f_reactions.close()
+	f_clean_messages.close()
+	
+	sys.stdout.write("\r100%. Done writing messages.\n\n")
+	sys.stdout.flush()
+	
+def process_reactions(message, f_reactions):
+	for reaction in message.reactions:
+		try:
 			gen = yield from client.get_reaction_users(reaction)
-			emoji = ""
 			reaction_users = [user.id for user in gen]
 			
 			f_reactions.write(json.dumps({
@@ -102,14 +111,10 @@ def scrape_logs_from(channel):
 				'count': reaction.count,
 				'user_ids': reaction_users
 			}, sort_keys=True) + '\n')
-		
-	f_messages.close()
-	f_reactions.close()
-	f_clean_messages.close()
+			
+		except Exception as exc:
+				print('Exception when processing reaction: {0}\n\nContinuing...'.format(exc))
 	
-	print ('finished writing messages to files')
-	
-
 args = parser.parse_args()
 
 if args.server_id:
