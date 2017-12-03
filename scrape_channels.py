@@ -34,7 +34,7 @@ def on_ready():
 				yield from scrape_logs_from(SERVER.get_channel(cid))
 		else:
 			for channel in SERVER.channels:
-				if channel.type.text:
+				if str(channel.type) == 'text':
 					yield from scrape_logs_from(channel)
 		
 		print("\n\nFinished. Spam CTRL+C to exit")
