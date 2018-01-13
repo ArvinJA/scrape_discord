@@ -24,17 +24,18 @@ client = discord.Client()
 @client.event
 @asyncio.coroutine
 def on_ready():
-		print('Logged in as')
-		print(client.user.name)
-		print('------')
-		
-		SERVER = client.get_server(SERVER_ID)
-		channels = [SERVER.get_channel(cid) for cid in CHANNELS] if CHANNELS else SERVER.channels
-		for channel in sorted(channels, key=lambda c: c.position):
-			if str(channel.type) == 'text' and SERVER.me.permissions_in(channel).read_message_history:
-				yield from scrape_logs_from(channel)
-		
-		print("\n\nFinished. CTRL+C to exit")
+	print('Logged in as')
+	print(client.user.name)
+	print('------')
+
+	SERVER = client.get_server(SERVER_ID)
+	channels = [SERVER.get_channel(cid) for cid in CHANNELS] if CHANNELS else SERVER.channels
+	channels = filter(None, channels)
+	for channel in sorted(channels, key=lambda c: c.position):
+		if str(channel.type) == 'text' and SERVER.me.permissions_in(channel).read_message_history:
+			yield from scrape_logs_from(channel)
+
+	print("\n\nFinished. CTRL+C to exit")
 		
 # source: https://stackoverflow.com/a/37630397/312332
 def progress_bar(value, endvalue, bar_length=20):
@@ -43,7 +44,7 @@ def progress_bar(value, endvalue, bar_length=20):
 	spaces = ' ' * (bar_length - len(arrow))
 	
 	try:
-		sys.stdout.write("\rPercent: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
+		sys.stdout.write("\rPercent done: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
 		sys.stdout.flush()
 	except:
 		pass
@@ -124,7 +125,7 @@ def process_reactions(message, f_reactions):
 			}, sort_keys=True) + '\n')
 			
 		except Exception as exc:
-				print('Exception when processing reaction: {0}\n\nContinuing...'.format(exc))
+				print('\nException when processing reaction: {0}\n\nContinuing...\n'.format(exc))
 	
 args = parser.parse_args()
 

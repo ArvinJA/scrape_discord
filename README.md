@@ -1,5 +1,11 @@
 Scrape Discord channels
 
+Installation (of requirements):
+```
+   pip install -r requirements.txt
+```
+
+
 Usage:
 ```
    python scrape_channels.py --user [user] --password [password] -sid [server id]
