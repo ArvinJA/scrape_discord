@@ -12,12 +12,16 @@ parser.add_argument('--server_id', '-sid', type=str, nargs=1, help='the discord 
 parser.add_argument('--user', '-u', type=str, nargs=1, help='username')
 parser.add_argument('--password', '-p', type=str, nargs=1, help='password')
 parser.add_argument('--token', '-t', type=str, nargs=1, help='token')
+parser.add_argument('--sleep', '-s', type=float, nargs=1, help='sleep')
 parser.add_argument('--channels', '-c', type=str, nargs='*', help='channel ids')
+parser.add_argument('--messages', '-m', type=int, nargs=1, help='messages')
 
 SERVER_ID = ""
 CHANNELS = []
 SERVER = None
 TIMESTAMP_STR = str(int(time()))
+SLEEP_TIME = 0.2 # default, use --sleep or -s to change
+MESSAGES = 200 # default, use --messages or -m to change
 
 client = discord.Client()
 
@@ -30,7 +34,7 @@ def on_ready():
 
 	SERVER = client.get_server(SERVER_ID)
 	channels = [SERVER.get_channel(cid) for cid in CHANNELS] if CHANNELS else SERVER.channels
-	channels = filter(None, channels)
+	channels = filter(None, channels) # Haven't encounterd a case where this is needed other than specifying incorrect channel id's
 	for channel in sorted(channels, key=lambda c: c.position):
 		if str(channel.type) == 'text' and SERVER.me.permissions_in(channel).read_message_history:
 			yield from scrape_logs_from(channel)
@@ -44,7 +48,7 @@ def progress_bar(value, endvalue, bar_length=20):
 	spaces = ' ' * (bar_length - len(arrow))
 	
 	try:
-		sys.stdout.write("\rPercent done: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
+		sys.stdout.write("\rComplete: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
 		sys.stdout.flush()
 	except:
 		pass
@@ -72,7 +76,7 @@ def scrape_logs_from(channel):
 	last = all_messages[0]
 		
 	while True:
-		gen = yield from client.logs_from(channel, before=last, limit=100)
+		gen = yield from client.logs_from(channel, before=last, limit=MESSAGES)
 		new_messages = list(gen)
 		if len(new_messages) == 0:
 			break
@@ -80,7 +84,7 @@ def scrape_logs_from(channel):
 		print('collected ' + str(len(all_messages)) + ' messages')
 		last = new_messages[-1]
 			
-		sleep(0.1)
+		sleep(SLEEP_TIME)
 	
 	print('writing '+ str(len(all_messages)) +' messages to log files for ' + channel.name)
 	
@@ -126,6 +130,8 @@ def process_reactions(message, f_reactions):
 			
 		except Exception as exc:
 				print('\nException when processing reaction: {0}\n\nContinuing...\n'.format(exc))
+				
+		sleep(SLEEP_TIME)
 	
 args = parser.parse_args()
 
@@ -133,10 +139,14 @@ if args.server_id:
 	SERVER_ID = args.server_id[0]
 if args.channels:
 	CHANNELS = args.channels
+if args.sleep:
+	SLEEP_TIME = args.sleep[0]
+if args.messages:
+	MESSAGES = args.messages[0]
 
 if args.user and args.password:
 	client.run(args.user[0], args.password[0])
 elif args.token:
 	client.run(args.token[0])
 else:
-	print("No credentials!")
+	print("No login credentials...")
