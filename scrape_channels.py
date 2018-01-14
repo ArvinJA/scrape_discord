@@ -1,11 +1,10 @@
 import discord
 import asyncio
 import json
-import sys, os
+import os
 import argparse
 
 from time import time
-from datetime import datetime
 
 # example: python scrape_channels.py --user [user] --password [password] -sid [server id]
 parser = argparse.ArgumentParser(description='Scrape channel logs.')
