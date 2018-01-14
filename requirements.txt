@@ -1,2 +1,2 @@
-aiohttp==1.0.5
-discord.py==0.16.8
+aiohttp==2.3.7
+discord.py==0.16.12

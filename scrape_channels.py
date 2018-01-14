@@ -4,55 +4,48 @@ import json
 import sys, os
 import argparse
 
-from time import sleep, time
+from time import time
+from datetime import datetime
 
 # example: python scrape_channels.py --user [user] --password [password] -sid [server id]
 parser = argparse.ArgumentParser(description='Scrape channel logs.')
-parser.add_argument('--server_id', '-sid', type=str, nargs=1, help='the discord server id', required=True)
-parser.add_argument('--user', '-u', type=str, nargs=1, help='username')
-parser.add_argument('--password', '-p', type=str, nargs=1, help='password')
-parser.add_argument('--token', '-t', type=str, nargs=1, help='token')
-parser.add_argument('--sleep', '-s', type=float, nargs=1, help='sleep')
+parser.add_argument('--server_id', '-sid', type=str, help='the discord server id, required', required=True)
+parser.add_argument('--token', '-t', type=str, help='token, used to log in')
+parser.add_argument('--user', '-u', type=str, help='username, note: should not be used')
+parser.add_argument('--password', '-p', type=str, help='password, note: should not be used')
 parser.add_argument('--channels', '-c', type=str, nargs='*', help='channel ids')
-parser.add_argument('--messages', '-m', type=int, nargs=1, help='messages')
+parser.add_argument('--messages', '-m', type=int, help='number of messages to fetch per request')
+parser.add_argument('--selfbot', action='store_true', help='is the connecting user a selfbot/regular user? note: should not be used')
 
 SERVER_ID = ""
 CHANNELS = []
 SERVER = None
 TIMESTAMP_STR = str(int(time()))
-SLEEP_TIME = 0.2 # default, use --sleep or -s to change
-MESSAGES = 200 # default, use --messages or -m to change
+MESSAGES = 100 # default, use --messages or -m to change
 
 client = discord.Client()
 
 @client.event
 @asyncio.coroutine
 def on_ready():
-	print('Logged in as')
-	print(client.user.name)
+	print('Logged in as: %s' % client.user.name)
 	print('------')
 
 	SERVER = client.get_server(SERVER_ID)
 	channels = [SERVER.get_channel(cid) for cid in CHANNELS] if CHANNELS else SERVER.channels
-	channels = filter(None, channels) # Haven't encounterd a case where this is needed other than specifying incorrect channel id's
+	channels = list(filter(None, channels)) # Haven't encounterd a case where this is needed other than specifying incorrect channel id's
 	for channel in sorted(channels, key=lambda c: c.position):
 		if str(channel.type) == 'text' and SERVER.me.permissions_in(channel).read_message_history:
 			yield from scrape_logs_from(channel)
-
-	print("\n\nFinished. CTRL+C to exit")
-		
-# source: https://stackoverflow.com/a/37630397/312332
-def progress_bar(value, endvalue, bar_length=20):
-	percent = float(value) / endvalue
-	arrow = '-' * int(round(percent * bar_length)-1) + '>'
-	spaces = ' ' * (bar_length - len(arrow))
-	
+			
 	try:
-		sys.stdout.write("\rComplete: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
-		sys.stdout.flush()
+		yield from client.close()
 	except:
 		pass
 		
+	print("Finished scraping %d channel(s)." % len(channels))
+		
+@asyncio.coroutine		
 def scrape_logs_from(channel):
 	all_messages = []
 	all_clean_messages = []
@@ -69,26 +62,31 @@ def scrape_logs_from(channel):
 	f_clean_messages = open(log_dir + log_prefix + 'clean-messages' + log_suffix, mode='w')
 	f_reactions = open(log_dir + log_prefix + 'reactions' + log_suffix, mode='w')
 	
-	print('scraping logs for ' + channel.name)
+	print('scraping logs for %s' % channel.name)
 	
-	gen = yield from client.logs_from(channel, limit=1)
-	all_messages += list(gen)
-	last = all_messages[0]
-		
+	last = channel.created_at
+	total = 0
+	
 	while True:
-		gen = yield from client.logs_from(channel, before=last, limit=MESSAGES)
-		new_messages = list(gen)
-		if len(new_messages) == 0:
+		gen = yield from client.logs_from(channel, after=last, limit=MESSAGES)
+		messages = list(gen)
+		if len(messages) == 0:
 			break
-		all_messages += new_messages
-		print('collected ' + str(len(all_messages)) + ' messages')
-		last = new_messages[-1]
 			
-		sleep(SLEEP_TIME)
+		yield from write_messages(messages, f_messages, f_clean_messages, f_reactions)
+		last = messages[0]
+		total += len(messages)
+		print(str(total) + " messages scraped")
+		
+	f_messages.close()
+	f_reactions.close()
+	f_clean_messages.close()
 	
-	print('writing '+ str(len(all_messages)) +' messages to log files for ' + channel.name)
-	
-	for i, message in enumerate(all_messages[::-1]):
+	print("\nDone writing messages for %s.\n" % channel.name)
+
+@asyncio.coroutine
+def write_messages(messages, f_messages, f_clean_messages, f_reactions):
+	for message in messages[::-1]:
 		f_messages.write(json.dumps({
 			'id': message.id,
 			'timestamp': str(message.timestamp), 
@@ -101,18 +99,12 @@ def scrape_logs_from(channel):
 		f_clean_messages.write(json.dumps({
 			'id': message.id,
 			'clean_content': message.clean_content
-		}) + '\n')
+		}, sort_keys=True) + '\n')
 		
 		yield from process_reactions(message, f_reactions)
-		progress_bar(i, len(all_messages))
 		
-	f_messages.close()
-	f_reactions.close()
-	f_clean_messages.close()
 	
-	progress_bar(1, 1)
-	print("\nDone writing messages.\n")
-	
+@asyncio.coroutine	
 def process_reactions(message, f_reactions):
 	for reaction in message.reactions:
 		try:
@@ -130,23 +122,25 @@ def process_reactions(message, f_reactions):
 			
 		except Exception as exc:
 				print('\nException when processing reaction: {0}\n\nContinuing...\n'.format(exc))
-				
-		sleep(SLEEP_TIME)
-	
+
 args = parser.parse_args()
 
 if args.server_id:
-	SERVER_ID = args.server_id[0]
+	SERVER_ID = args.server_id
 if args.channels:
 	CHANNELS = args.channels
-if args.sleep:
-	SLEEP_TIME = args.sleep[0]
 if args.messages:
-	MESSAGES = args.messages[0]
+	if args.messages > 0 and args.messages <= 100:
+		MESSAGES = args.messages
+	else:
+		print("Max number of messages to return (1-100), using default: %d" % MESSAGES)
 
-if args.user and args.password:
-	client.run(args.user[0], args.password[0])
+if args.selfbot:
+	print("Using self-bots is not recommended.")
+	if args.token:
+		client.run(args.token, bot=False)
+	elif args.user and args.password:
+		print("Using user/password is not recommended.")
+		client.run(args.user, args.password)
 elif args.token:
-	client.run(args.token[0])
-else:
-	print("No login credentials...")
+	client.run(args.token)
