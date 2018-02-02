@@ -6,7 +6,7 @@ import argparse
 
 from time import time
 
-# example: python scrape_channels.py --user [user] --password [password] -sid [server id]
+# example: python scrape_channels.py -t [token] -sid [server id]
 parser = argparse.ArgumentParser(description='Scrape channel logs.')
 parser.add_argument('--server_id', '-sid', type=str, help='the discord server id, required', required=True)
 parser.add_argument('--token', '-t', type=str, help='token, used to log in')
@@ -75,7 +75,7 @@ def scrape_logs_from(channel):
 		yield from write_messages(messages, f_messages, f_clean_messages, f_reactions)
 		last = messages[0]
 		total += len(messages)
-		print(str(total) + " messages scraped")
+		print("%d messages scraped" % total)
 		
 	f_messages.close()
 	f_reactions.close()
