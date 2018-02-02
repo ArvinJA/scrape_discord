@@ -1,7 +1,7 @@
 import discord
 import asyncio
 import json
-import os
+import os, sys
 import argparse
 
 from time import time
@@ -15,6 +15,8 @@ parser.add_argument('--password', '-p', type=str, help='password, note: should n
 parser.add_argument('--channels', '-c', type=str, nargs='*', help='channel ids')
 parser.add_argument('--messages', '-m', type=int, help='number of messages to fetch per request')
 parser.add_argument('--selfbot', action='store_true', help='is the connecting user a selfbot/regular user? note: should not be used')
+
+PY35 = sys.version_info >= (3, 5)
 
 SERVER_ID = ""
 CHANNELS = []
@@ -67,8 +69,23 @@ def scrape_logs_from(channel):
 	total = 0
 	
 	while True:
-		gen = yield from client.logs_from(channel, after=last, limit=MESSAGES)
-		messages = list(gen)
+		
+		messages = []
+		
+		if PY35:
+			# feels like a mess, but works, clean it up later
+			log_iterator = client.logs_from(channel, after=last, limit=MESSAGES)
+			for i in range(MESSAGES):
+				try:
+					msg = yield from log_iterator.__anext__()
+				except:
+					break
+				messages.append(msg)
+				
+		else:
+			gen = yield from client.logs_from(channel, after=last, limit=MESSAGES)
+			messages = list(gen)
+		
 		if len(messages) == 0:
 			break
 			

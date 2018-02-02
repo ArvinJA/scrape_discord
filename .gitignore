@@ -119,3 +119,7 @@ venv.bak/
 pyvenv.cfg
 .venv
 pip-selfcheck.json
+
+# other
+py36/
+py34/

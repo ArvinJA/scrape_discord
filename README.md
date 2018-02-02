@@ -17,7 +17,10 @@ Usage:
 and any such use may put your account in peril. The allowed way to scrape is to register a bot
 to your discord server and use the bot's token.
 
-Requirements: discordy.py, asyncio, python3
-(only tested with python 3.4.3 and discord.py 0.16.8)
+Requirements: discordy.py, asyncio, python3.4+
 
 Saves reactions and "cleaned" messages to different files
+
+Tested with:
+python 3.4.3
+python 3.6.4
