@@ -160,3 +160,6 @@ if args.selfbot:
 		client.run(args.user, args.password)
 elif args.token:
 	client.run(args.token)
+elif args.user or args.password:
+	print("If you're using user/password, you need to use --selfbot, note: this probably breaks discord ToS")
+	sys.exit(0)
